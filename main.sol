@@ -964,3 +964,72 @@ contract DiazTrade {
             _nextRouteId,
             owner,
             operator,
+            treasury,
+            paused,
+            sealed,
+            DT_DOMAIN,
+            DT_SALT,
+            block.chainid,
+            address(this)
+        ));
+    }
+
+    // ------------------------------------------------------------------------
+    // Route filtering and selection helpers (views)
+    // ------------------------------------------------------------------------
+
+    function routeExists(uint256 routeId) public view returns (bool) {
+        return _routes[routeId].routeKey != bytes32(0);
+    }
+
+    function isRouteActive(uint256 routeId) public view returns (bool) {
+        Route storage r = _routes[routeId];
+        return r.routeKey != bytes32(0) && !r.retired;
+    }
+
+    function isRouteForChains(uint256 routeId, uint32 srcChain, uint32 dstChain) public view returns (bool) {
+        Route storage r = _routes[routeId];
+        if (r.routeKey == bytes32(0)) return false;
+        return r.srcChain == srcChain && r.dstChain == dstChain;
+    }
+
+    function isRouteForPair(uint256 routeId, bytes32 srcAsset, bytes32 dstAsset) public view returns (bool) {
+        Route storage r = _routes[routeId];
+        if (r.routeKey == bytes32(0)) return false;
+        return r.srcAsset == srcAsset && r.dstAsset == dstAsset;
+    }
+
+    function routesForKey(bytes32 routeKey, uint256 fromId, uint256 limit) external view returns (uint256[] memory ids) {
+        if (limit == 0 || limit > DT_MAX_BATCH) revert DT__BadAmount();
+        if (fromId == 0) fromId = 1;
+        uint256[] memory temp = new uint256[](limit);
+        uint256 found;
+        for (uint256 id = fromId; id < _nextRouteId && found < limit; ) {
+            if (_routes[id].routeKey == routeKey) {
+                temp[found] = id;
+                unchecked { ++found; }
+            }
+            unchecked { ++id; }
+        }
+        ids = new uint256[](found);
+        for (uint256 i; i < found; ) {
+            ids[i] = temp[i];
+            unchecked { ++i; }
+        }
+    }
+
+    function activeRoutesForKey(bytes32 routeKey, uint256 fromId, uint256 limit) external view returns (uint256[] memory ids) {
+        if (limit == 0 || limit > DT_MAX_BATCH) revert DT__BadAmount();
+        if (fromId == 0) fromId = 1;
+        uint256[] memory temp = new uint256[](limit);
+        uint256 found;
+        for (uint256 id = fromId; id < _nextRouteId && found < limit; ) {
+            Route storage r = _routes[id];
+            if (r.routeKey == routeKey && !r.retired) {
+                temp[found] = id;
+                unchecked { ++found; }
+            }
+            unchecked { ++id; }
+        }
+        ids = new uint256[](found);
+        for (uint256 i; i < found; ) {
