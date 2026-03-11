@@ -688,3 +688,72 @@ contract DiazTrade {
         if (nextId <= 1) return new uint256[](0);
         if (offset == 0) offset = 1;
         if (offset >= nextId) return new uint256[](0);
+        uint256 end = offset + limit;
+        if (end > nextId) end = nextId;
+        uint256 n = end - offset;
+        ids = new uint256[](n);
+        for (uint256 i; i < n; ) {
+            ids[i] = offset + i;
+            unchecked { ++i; }
+        }
+    }
+
+    function routesReverse(uint256 offset, uint256 limit) external view returns (uint256[] memory ids) {
+        if (limit == 0 || limit > DT_MAX_BATCH) revert DT__BadAmount();
+        uint256 nextId = _nextRouteId;
+        if (nextId <= 1) return new uint256[](0);
+        uint256 start = nextId - 1;
+        if (offset > start) return new uint256[](0);
+        start = start - offset;
+        uint256 n = limit;
+        if (start + 1 < n) n = start + 1;
+        ids = new uint256[](n);
+        for (uint256 i; i < n; ) {
+            ids[i] = start - i;
+            unchecked { ++i; }
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Stats (O(n) views)
+    // ------------------------------------------------------------------------
+
+    function venueEnabledCount() external view returns (uint256 count) {
+        uint256 n = _venueIds.length;
+        for (uint256 i; i < n; ) {
+            if (_venues[_venueIds[i]].enabled) unchecked { ++count; }
+            unchecked { ++i; }
+        }
+    }
+
+    function venueDisabledCount() external view returns (uint256 count) {
+        uint256 n = _venueIds.length;
+        for (uint256 i; i < n; ) {
+            Venue storage v = _venues[_venueIds[i]];
+            if (v.exists && !v.enabled) unchecked { ++count; }
+            unchecked { ++i; }
+        }
+    }
+
+    function routeRetiredCount() external view returns (uint256 count) {
+        uint256 nextId = _nextRouteId;
+        for (uint256 id = 1; id < nextId; ) {
+            if (_routes[id].retired) unchecked { ++count; }
+            unchecked { ++id; }
+        }
+    }
+
+    function routeActiveCount() external view returns (uint256 count) {
+        uint256 nextId = _nextRouteId;
+        for (uint256 id = 1; id < nextId; ) {
+            Route storage r = _routes[id];
+            if (r.routeKey != bytes32(0) && !r.retired) unchecked { ++count; }
+            unchecked { ++id; }
+        }
+    }
+
+    function chainHistogram() external view returns (uint256 evm, uint256 sol, uint256 sui, uint256 other) {
+        uint256 nextId = _nextRouteId;
+        for (uint256 id = 1; id < nextId; ) {
+            Route storage r = _routes[id];
+            if (r.routeKey != bytes32(0)) {
