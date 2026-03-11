@@ -136,3 +136,72 @@ contract DiazTrade {
     // ------------------------------------------------------------------------
 
     address public owner;
+    address public pendingOwner;
+    address public operator;
+    address public treasury;
+
+    bool public paused;
+    bool public sealed;
+    uint256 private _lock;
+
+    uint256 private _nextVenueIndex;
+    uint256 private _nextRouteId;
+    uint256 private _totalWithdrawnWei;
+
+    struct Venue {
+        uint32 chainId;
+        bytes32 venueTag;
+        bool enabled;
+        uint64 catalogedAt;
+        bool exists;
+    }
+
+    struct Route {
+        bytes32 routeKey;
+        uint32 srcChain;
+        uint32 dstChain;
+        bytes32 srcAsset;
+        bytes32 dstAsset;
+        uint16 maxSlippageBps;
+        bytes32[] venuePath;
+        bool retired;
+        uint64 authoredAt;
+    }
+
+    mapping(bytes32 => Venue) private _venues; // venueId => venue
+    bytes32[] private _venueIds;
+
+    mapping(uint256 => Route) private _routes; // routeId => route
+    mapping(bytes32 => uint256) private _routeKeyToLatestId;
+
+    mapping(bytes32 => bool) private _quoteSeen;
+    mapping(bytes32 => uint256) private _quoteToRouteId;
+    mapping(address => uint256) private _dispatchCount;
+
+    // ------------------------------------------------------------------------
+    // Modifiers
+    // ------------------------------------------------------------------------
+
+    modifier nonReentrant() {
+        if (_lock != 0) revert DT__Reentrancy();
+        _lock = 1;
+        _;
+        _lock = 0;
+    }
+
+    modifier whenNotPaused() {
+        if (paused) revert DT__Paused();
+        _;
+    }
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert DT__NotOwner();
+        _;
+    }
+
+    modifier onlyOperator() {
+        if (msg.sender != operator) revert DT__NotOperator();
+        _;
+    }
+
+    modifier onlyTreasury() {
