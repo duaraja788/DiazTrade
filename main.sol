@@ -757,3 +757,72 @@ contract DiazTrade {
         for (uint256 id = 1; id < nextId; ) {
             Route storage r = _routes[id];
             if (r.routeKey != bytes32(0)) {
+                if (r.dstChain == DT_CHAIN_EVM) unchecked { ++evm; }
+                else if (r.dstChain == DT_CHAIN_SOLANA) unchecked { ++sol; }
+                else if (r.dstChain == DT_CHAIN_SUI) unchecked { ++sui; }
+                else unchecked { ++other; }
+            }
+            unchecked { ++id; }
+        }
+    }
+
+    function dispatchCountBatch(address[] calldata accounts) external view returns (uint256[] memory counts_) {
+        uint256 n = accounts.length;
+        if (n > DT_MAX_BATCH) revert DT__TooLarge();
+        counts_ = new uint256[](n);
+        for (uint256 i; i < n; ) {
+            counts_[i] = _dispatchCount[accounts[i]];
+            unchecked { ++i; }
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Hashing helpers (pure)
+    // ------------------------------------------------------------------------
+
+    function hashVenue(bytes32 venueTag, uint32 chainId, bytes32 salt_) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("VENUE", venueTag, chainId, salt_));
+    }
+
+    function hashAsset(bytes32 symbolTag, uint8 decimals_) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("ASSET", symbolTag, decimals_));
+    }
+
+    function hashPair(bytes32 srcAsset, bytes32 dstAsset) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("PAIR", srcAsset, dstAsset));
+    }
+
+    function hashRouteKey(bytes32 routeKey, bytes32 salt_) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("ROUTE_KEY", routeKey, salt_));
+    }
+
+    function hashQuoteDigest(bytes32 quoteId, uint128 expectedDstAmount, uint64 validUntilBlock) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("Q", quoteId, expectedDstAmount, validUntilBlock));
+    }
+
+    function hashDispatch(bytes32 quoteId, address requester, bytes32 intentHash, uint256 chainId, uint256 blockNumber) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("D", quoteId, requester, intentHash, chainId, blockNumber));
+    }
+
+    function mix(bytes32 a, bytes32 b) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked(a, b));
+    }
+
+    function mix3(bytes32 a, bytes32 b, bytes32 c) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked(a, b, c));
+    }
+
+    function mix4(bytes32 a, bytes32 b, bytes32 c, bytes32 d) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked(a, b, c, d));
+    }
+
+    // ------------------------------------------------------------------------
+    // Validation helpers (views)
+    // ------------------------------------------------------------------------
+
+    function validateVenue(bytes32 venueId) external view returns (bool ok, string memory why) {
+        Venue storage v = _venues[venueId];
+        if (!v.exists) return (false, "missing");
+        if (!v.enabled) return (false, "disabled");
+        if (v.chainId == 0) return (false, "bad_chain");
+        return (true, "ok");
