@@ -343,3 +343,72 @@ contract DiazTrade {
         r.srcChain = srcChain;
         r.dstChain = dstChain;
         r.srcAsset = srcAsset;
+        r.dstAsset = dstAsset;
+        r.maxSlippageBps = maxSlippageBps;
+        r.retired = false;
+        r.authoredAt = uint64(block.number);
+
+        for (uint256 i; i < vpLen; ) {
+            bytes32 vid = venuePath[i];
+            Venue storage v = _venues[vid];
+            if (!v.exists || !v.enabled) revert DT__BadVenue();
+            r.venuePath.push(vid);
+            unchecked { ++i; }
+        }
+
+        _routeKeyToLatestId[key] = routeId;
+
+        emit RouteAuthored(routeId, key, srcChain, dstChain, srcAsset, dstAsset, maxSlippageBps, uint64(block.number));
+    }
+
+    function retireRoute(uint256 routeId) external onlyOperator nonReentrant {
+        if (sealed) revert DT__Sealed();
+        Route storage r = _routes[routeId];
+        if (r.routeKey == bytes32(0)) revert DT__Missing();
+        if (r.retired) revert DT__Already();
+        r.retired = true;
+        emit RouteRetired(routeId, uint64(block.number));
+    }
+
+    function routeOf(uint256 routeId) external view returns (
+        bytes32 routeKey,
+        uint32 srcChain,
+        uint32 dstChain,
+        bytes32 srcAsset,
+        bytes32 dstAsset,
+        uint16 maxSlippageBps,
+        bool retired,
+        uint64 authoredAt
+    ) {
+        Route storage r = _routes[routeId];
+        if (r.routeKey == bytes32(0)) revert DT__Missing();
+        return (r.routeKey, r.srcChain, r.dstChain, r.srcAsset, r.dstAsset, r.maxSlippageBps, r.retired, r.authoredAt);
+    }
+
+    function routeVenuePath(uint256 routeId) external view returns (bytes32[] memory) {
+        Route storage r = _routes[routeId];
+        if (r.routeKey == bytes32(0)) revert DT__Missing();
+        return r.venuePath;
+    }
+
+    function latestRouteId(bytes32 routeKey) external view returns (uint256) {
+        return _routeKeyToLatestId[routeKey];
+    }
+
+    function nextRouteId() external view returns (uint256) {
+        return _nextRouteId;
+    }
+
+    // ------------------------------------------------------------------------
+    // Quotes and dispatch (signals only)
+    // ------------------------------------------------------------------------
+
+    function computeQuoteId(bytes32 routeKey, uint256 routeId, uint128 srcAmount, uint64 validUntilBlock) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked("QUOTE", routeKey, routeId, srcAmount, validUntilBlock));
+    }
+
+    function stampQuote(
+        uint256 routeId,
+        uint128 srcAmount,
+        uint128 expectedDstAmount,
+        uint64 validUntilBlock
