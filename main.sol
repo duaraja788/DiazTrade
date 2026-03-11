@@ -550,3 +550,72 @@ contract DiazTrade {
 
     function routeCount() external view returns (uint256) {
         return _nextRouteId <= 1 ? 0 : _nextRouteId - 1;
+    }
+
+    function venueExists(bytes32 venueId) public view returns (bool) {
+        return _venues[venueId].exists;
+    }
+
+    function venueEnabled(bytes32 venueId) public view returns (bool) {
+        Venue storage v = _venues[venueId];
+        return v.exists && v.enabled;
+    }
+
+    function getVenueView(bytes32 venueId) external view returns (VenueView memory v) {
+        Venue storage info = _venues[venueId];
+        v.venueId = venueId;
+        v.chainId = info.chainId;
+        v.venueTag = info.venueTag;
+        v.enabled = info.enabled;
+        v.catalogedAt = info.catalogedAt;
+        v.exists = info.exists;
+    }
+
+    function getVenueViews(bytes32[] calldata venueIds_) external view returns (VenueView[] memory views) {
+        uint256 n = venueIds_.length;
+        if (n > DT_MAX_BATCH) revert DT__TooLarge();
+        views = new VenueView[](n);
+        for (uint256 i; i < n; ) {
+            bytes32 id = venueIds_[i];
+            Venue storage info = _venues[id];
+            views[i] = VenueView({
+                venueId: id,
+                chainId: info.chainId,
+                venueTag: info.venueTag,
+                enabled: info.enabled,
+                catalogedAt: info.catalogedAt,
+                exists: info.exists
+            });
+            unchecked { ++i; }
+        }
+    }
+
+    function venueIdsPage(uint256 offset, uint256 limit) external view returns (bytes32[] memory ids) {
+        if (limit == 0) revert DT__BadAmount();
+        uint256 nAll = _venueIds.length;
+        if (offset >= nAll) return new bytes32[](0);
+        uint256 end = offset + limit;
+        if (end > nAll) end = nAll;
+        uint256 n = end - offset;
+        ids = new bytes32[](n);
+        for (uint256 i; i < n; ) {
+            ids[i] = _venueIds[offset + i];
+            unchecked { ++i; }
+        }
+    }
+
+    function getRouteView(uint256 routeId) external view returns (RouteView memory v) {
+        Route storage r = _routes[routeId];
+        if (r.routeKey == bytes32(0)) revert DT__Missing();
+        v.routeId = routeId;
+        v.routeKey = r.routeKey;
+        v.srcChain = r.srcChain;
+        v.dstChain = r.dstChain;
+        v.srcAsset = r.srcAsset;
+        v.dstAsset = r.dstAsset;
+        v.maxSlippageBps = r.maxSlippageBps;
+        v.retired = r.retired;
+        v.authoredAt = r.authoredAt;
+        v.venuePathLen = r.venuePath.length;
+    }
+
