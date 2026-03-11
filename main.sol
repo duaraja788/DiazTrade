@@ -412,3 +412,72 @@ contract DiazTrade {
         uint128 srcAmount,
         uint128 expectedDstAmount,
         uint64 validUntilBlock
+    ) external onlyOperator whenNotPaused nonReentrant returns (bytes32 quoteId) {
+        Route storage r = _routes[routeId];
+        if (r.routeKey == bytes32(0)) revert DT__Missing();
+        if (r.retired) revert DT__BadRoute();
+        if (srcAmount == 0 || expectedDstAmount == 0) revert DT__BadAmount();
+        if (validUntilBlock <= uint64(block.number)) revert DT__BadNonce();
+
+        quoteId = computeQuoteId(r.routeKey, routeId, srcAmount, validUntilBlock);
+        if (_quoteSeen[quoteId]) revert DT__Already();
+        _quoteSeen[quoteId] = true;
+        _quoteToRouteId[quoteId] = routeId;
+
+        bytes32 digest = keccak256(abi.encodePacked(quoteId, expectedDstAmount, validUntilBlock, DT_DOMAIN, DT_SALT));
+        emit QuoteStamped(quoteId, r.routeKey, routeId, srcAmount, expectedDstAmount, validUntilBlock, digest);
+    }
+
+    function quoteSeen(bytes32 quoteId) external view returns (bool) {
+        return _quoteSeen[quoteId];
+    }
+
+    function quoteRouteId(bytes32 quoteId) external view returns (uint256) {
+        return _quoteToRouteId[quoteId];
+    }
+
+    function signalDispatch(bytes32 quoteId, bytes32 intentHash) external whenNotPaused nonReentrant returns (bytes32 dispatchId) {
+        if (!_quoteSeen[quoteId]) revert DT__Missing();
+        if (intentHash == bytes32(0)) revert DT__BadBytes();
+        dispatchId = keccak256(abi.encodePacked("DISPATCH", quoteId, msg.sender, intentHash, block.number, block.chainid));
+        unchecked { _dispatchCount[msg.sender] += 1; }
+        emit DispatchSignaled(dispatchId, quoteId, msg.sender, intentHash, uint64(block.number));
+    }
+
+    function dispatchCount(address account) external view returns (uint256) {
+        return _dispatchCount[account];
+    }
+
+    // ------------------------------------------------------------------------
+    // Treasury (cap)
+    // ------------------------------------------------------------------------
+
+    receive() external payable {}
+
+    function totalWithdrawnWei() external view returns (uint256) {
+        return _totalWithdrawnWei;
+    }
+
+    function remainingWithdrawCap() external view returns (uint256) {
+        return _totalWithdrawnWei >= DT_WITHDRAW_CAP_WEI ? 0 : DT_WITHDRAW_CAP_WEI - _totalWithdrawnWei;
+    }
+
+    function withdrawTreasury(address to, uint256 amountWei) external onlyTreasury nonReentrant {
+        if (to == address(0)) revert DT__BadAddress();
+        if (amountWei == 0) revert DT__BadAmount();
+        if (_totalWithdrawnWei + amountWei > DT_WITHDRAW_CAP_WEI) revert DT__BadAmount();
+        _totalWithdrawnWei += amountWei;
+        (bool ok,) = to.call{value: amountWei}("");
+        if (!ok) revert DT__TransferFailed();
+        emit TreasuryWithdrawn(to, amountWei, uint64(block.number));
+    }
+
+    // ------------------------------------------------------------------------
+    // Utility / UI helpers
+    // ------------------------------------------------------------------------
+
+    function chainName(uint32 chainId) public pure returns (string memory) {
+        if (chainId == DT_CHAIN_EVM) return "EVM";
+        if (chainId == DT_CHAIN_SOLANA) return "SOLANA";
+        if (chainId == DT_CHAIN_SUI) return "SUI";
+        return string(abi.encodePacked("CHAIN_", uint256(chainId).toString()));
