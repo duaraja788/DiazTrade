@@ -67,3 +67,72 @@ contract DiazTrade {
     event TreasuryChanged(address indexed previousTreasury, address indexed newTreasury, uint64 atBlock);
     event PauseToggled(bool paused, uint64 atBlock);
     event SealToggled(bool sealed, uint64 atBlock);
+
+    event VenueCataloged(bytes32 indexed venueId, uint32 indexed chainId, bytes32 indexed venueTag, uint64 atBlock);
+    event VenueEnabled(bytes32 indexed venueId, bool enabled, uint64 atBlock);
+
+    event RouteAuthored(
+        uint256 indexed routeId,
+        bytes32 indexed routeKey,
+        uint32 srcChain,
+        uint32 dstChain,
+        bytes32 srcAsset,
+        bytes32 dstAsset,
+        uint16 maxSlippageBps,
+        uint64 atBlock
+    );
+
+    event RouteRetired(uint256 indexed routeId, uint64 atBlock);
+
+    event QuoteStamped(
+        bytes32 indexed quoteId,
+        bytes32 indexed routeKey,
+        uint256 indexed routeId,
+        uint128 srcAmount,
+        uint128 expectedDstAmount,
+        uint64 validUntilBlock,
+        bytes32 quoteDigest
+    );
+
+    event DispatchSignaled(
+        bytes32 indexed dispatchId,
+        bytes32 indexed quoteId,
+        address indexed requester,
+        bytes32 intentHash,
+        uint64 atBlock
+    );
+
+    event TreasuryWithdrawn(address indexed to, uint256 amountWei, uint64 atBlock);
+
+    // ------------------------------------------------------------------------
+    // Constants (unique)
+    // ------------------------------------------------------------------------
+
+    uint256 public constant DT_REVISION = 2;
+    uint16 public constant DT_BPS = 10_000;
+    uint16 public constant DT_MAX_SLIPPAGE_BPS = 1_500;
+    uint256 public constant DT_MAX_ROUTES = 55_555;
+    uint256 public constant DT_MAX_VENUES = 8_192;
+    uint256 public constant DT_MAX_BATCH = 80;
+    uint256 public constant DT_WITHDRAW_CAP_WEI = 5 ether;
+    bytes32 public constant DT_DOMAIN = keccak256("DiazTrade.Domain.RouteDesk.v2");
+    bytes32 public constant DT_SALT = 0x7734cf7f23fc4c289e05d267850efb932bd05b68a8294f669c90fddcec114541;
+
+    uint32 public constant DT_CHAIN_EVM = 1;
+    uint32 public constant DT_CHAIN_SOLANA = 501;
+    uint32 public constant DT_CHAIN_SUI = 784;
+
+    // ------------------------------------------------------------------------
+    // Roles (immutable)
+    // ------------------------------------------------------------------------
+
+    address public immutable bootOwner;
+    address public immutable bootOperator;
+    address public immutable bootTreasury;
+    uint256 public immutable genesisBlock;
+
+    // ------------------------------------------------------------------------
+    // Storage
+    // ------------------------------------------------------------------------
+
+    address public owner;
