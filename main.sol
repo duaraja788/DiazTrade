@@ -1033,3 +1033,72 @@ contract DiazTrade {
         }
         ids = new uint256[](found);
         for (uint256 i; i < found; ) {
+            ids[i] = temp[i];
+            unchecked { ++i; }
+        }
+    }
+
+    function routesForChains(uint32 srcChain, uint32 dstChain, uint256 fromId, uint256 limit) external view returns (uint256[] memory ids) {
+        if (limit == 0 || limit > DT_MAX_BATCH) revert DT__BadAmount();
+        if (fromId == 0) fromId = 1;
+        uint256[] memory temp = new uint256[](limit);
+        uint256 found;
+        for (uint256 id = fromId; id < _nextRouteId && found < limit; ) {
+            Route storage r = _routes[id];
+            if (r.routeKey != bytes32(0) && r.srcChain == srcChain && r.dstChain == dstChain) {
+                temp[found] = id;
+                unchecked { ++found; }
+            }
+            unchecked { ++id; }
+        }
+        ids = new uint256[](found);
+        for (uint256 i; i < found; ) {
+            ids[i] = temp[i];
+            unchecked { ++i; }
+        }
+    }
+
+    function routesForPair(bytes32 srcAsset, bytes32 dstAsset, uint256 fromId, uint256 limit) external view returns (uint256[] memory ids) {
+        if (limit == 0 || limit > DT_MAX_BATCH) revert DT__BadAmount();
+        if (fromId == 0) fromId = 1;
+        uint256[] memory temp = new uint256[](limit);
+        uint256 found;
+        for (uint256 id = fromId; id < _nextRouteId && found < limit; ) {
+            Route storage r = _routes[id];
+            if (r.routeKey != bytes32(0) && r.srcAsset == srcAsset && r.dstAsset == dstAsset) {
+                temp[found] = id;
+                unchecked { ++found; }
+            }
+            unchecked { ++id; }
+        }
+        ids = new uint256[](found);
+        for (uint256 i; i < found; ) {
+            ids[i] = temp[i];
+            unchecked { ++i; }
+        }
+    }
+
+    function routesForFull(uint32 srcChain, uint32 dstChain, bytes32 srcAsset, bytes32 dstAsset, uint256 fromId, uint256 limit)
+        external
+        view
+        returns (uint256[] memory ids)
+    {
+        if (limit == 0 || limit > DT_MAX_BATCH) revert DT__BadAmount();
+        if (fromId == 0) fromId = 1;
+        uint256[] memory temp = new uint256[](limit);
+        uint256 found;
+        for (uint256 id = fromId; id < _nextRouteId && found < limit; ) {
+            Route storage r = _routes[id];
+            if (r.routeKey != bytes32(0) && r.srcChain == srcChain && r.dstChain == dstChain && r.srcAsset == srcAsset && r.dstAsset == dstAsset) {
+                temp[found] = id;
+                unchecked { ++found; }
+            }
+            unchecked { ++id; }
+        }
+        ids = new uint256[](found);
+        for (uint256 i; i < found; ) {
+            ids[i] = temp[i];
+            unchecked { ++i; }
+        }
+    }
+
