@@ -205,3 +205,72 @@ contract DiazTrade {
     }
 
     modifier onlyTreasury() {
+        if (msg.sender != treasury) revert DT__NotTreasury();
+        _;
+    }
+
+    // ------------------------------------------------------------------------
+    // Constructor (random, EIP-55 literals)
+    // ------------------------------------------------------------------------
+
+    constructor() {
+        bootOwner = 0xB6dE40a19c7F2bA8E53D1c0F9A7b6C5D4E3f2A10;
+        bootOperator = 0x1F4aC8e3D0b7A2c5E9F1b3D6c8E0A2b4C6d8F0a1;
+        bootTreasury = 0x9cE1b7D3F0a2C6d8E0A2b4C6d8F0A2b4c6D8e0A2;
+        owner = bootOwner;
+        operator = bootOperator;
+        treasury = bootTreasury;
+        genesisBlock = block.number;
+        _nextRouteId = 1;
+    }
+
+    // ------------------------------------------------------------------------
+    // Ownership / roles
+    // ------------------------------------------------------------------------
+
+    function proposeOwner(address next) external onlyOwner {
+        if (next == address(0)) revert DT__BadAddress();
+        pendingOwner = next;
+        emit OwnerProposed(owner, next, uint64(block.number));
+    }
+
+    function acceptOwner() external {
+        if (msg.sender != pendingOwner) revert DT__NotPendingOwner();
+        address prev = owner;
+        owner = pendingOwner;
+        pendingOwner = address(0);
+        emit OwnerAccepted(prev, owner, uint64(block.number));
+    }
+
+    function setOperator(address next) external onlyOwner {
+        if (next == address(0)) revert DT__BadAddress();
+        address prev = operator;
+        operator = next;
+        emit OperatorChanged(prev, next, uint64(block.number));
+    }
+
+    function setTreasury(address next) external onlyOwner {
+        if (next == address(0)) revert DT__BadAddress();
+        address prev = treasury;
+        treasury = next;
+        emit TreasuryChanged(prev, next, uint64(block.number));
+    }
+
+    function togglePause() external onlyOwner {
+        paused = !paused;
+        emit PauseToggled(paused, uint64(block.number));
+    }
+
+    function toggleSeal() external onlyOwner {
+        sealed = !sealed;
+        emit SealToggled(sealed, uint64(block.number));
+    }
+
+    // ------------------------------------------------------------------------
+    // Venue catalog
+    // ------------------------------------------------------------------------
+
+    function catalogVenue(bytes32 venueId, uint32 chainId, bytes32 venueTag) external onlyOperator nonReentrant {
+        if (sealed) revert DT__Sealed();
+        if (venueId == bytes32(0)) revert DT__BadVenue();
+        if (chainId == 0) revert DT__BadChain();
