@@ -895,3 +895,72 @@ contract DiazTrade {
         return keccak256("VenueEnabled(bytes32,bool,uint64)");
     }
 
+    // ------------------------------------------------------------------------
+    // Convenience constants accessors
+    // ------------------------------------------------------------------------
+
+    function chainIdEvm() external pure returns (uint32) { return DT_CHAIN_EVM; }
+    function chainIdSolana() external pure returns (uint32) { return DT_CHAIN_SOLANA; }
+    function chainIdSui() external pure returns (uint32) { return DT_CHAIN_SUI; }
+
+    function bps() external pure returns (uint16) { return DT_BPS; }
+    function maxSlippageBps() external pure returns (uint16) { return DT_MAX_SLIPPAGE_BPS; }
+    function maxRoutes() external pure returns (uint256) { return DT_MAX_ROUTES; }
+    function maxVenues() external pure returns (uint256) { return DT_MAX_VENUES; }
+    function maxBatch() external pure returns (uint256) { return DT_MAX_BATCH; }
+    function withdrawCapWei() external pure returns (uint256) { return DT_WITHDRAW_CAP_WEI; }
+
+    function genesis() external view returns (uint256) { return genesisBlock; }
+    function self() external view returns (address) { return address(this); }
+    function chainId() external view returns (uint256) { return block.chainid; }
+    function blockNumber() external view returns (uint256) { return block.number; }
+    function timestamp() external view returns (uint256) { return block.timestamp; }
+
+    // ------------------------------------------------------------------------
+    // Quote cache helpers (read-only)
+    // ------------------------------------------------------------------------
+
+    function quoteInfo(bytes32 quoteId) external view returns (bool seen, uint256 routeId) {
+        return (_quoteSeen[quoteId], _quoteToRouteId[quoteId]);
+    }
+
+    function computeRouteDigest(uint256 routeId) external view returns (bytes32 digest) {
+        Route storage r = _routes[routeId];
+        if (r.routeKey == bytes32(0)) revert DT__Missing();
+        digest = keccak256(abi.encodePacked(
+            routeId,
+            r.routeKey,
+            r.srcChain,
+            r.dstChain,
+            r.srcAsset,
+            r.dstAsset,
+            r.maxSlippageBps,
+            r.retired,
+            r.authoredAt,
+            r.venuePath.length,
+            DT_DOMAIN,
+            DT_SALT
+        ));
+    }
+
+    function computeVenueDigest(bytes32 venueId) external view returns (bytes32 digest) {
+        Venue storage v = _venues[venueId];
+        if (!v.exists) revert DT__Missing();
+        digest = keccak256(abi.encodePacked(
+            venueId,
+            v.chainId,
+            v.venueTag,
+            v.enabled,
+            v.catalogedAt,
+            DT_DOMAIN,
+            DT_SALT
+        ));
+    }
+
+    function computeCatalogDigest() external view returns (bytes32 digest) {
+        digest = keccak256(abi.encodePacked(
+            "CATALOG",
+            _venueIds.length,
+            _nextRouteId,
+            owner,
+            operator,
