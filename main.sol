@@ -481,3 +481,72 @@ contract DiazTrade {
         if (chainId == DT_CHAIN_SOLANA) return "SOLANA";
         if (chainId == DT_CHAIN_SUI) return "SUI";
         return string(abi.encodePacked("CHAIN_", uint256(chainId).toString()));
+    }
+
+    function describeRoute(uint256 routeId) external view returns (string memory) {
+        Route storage r = _routes[routeId];
+        if (r.routeKey == bytes32(0)) return "ROUTE_NONE";
+        return string(abi.encodePacked(
+            "ROUTE_",
+            routeId.toString(),
+            "_",
+            chainName(r.srcChain),
+            "_TO_",
+            chainName(r.dstChain)
+        ));
+    }
+
+    function describeVenue(bytes32 venueId) external view returns (string memory) {
+        Venue storage v = _venues[venueId];
+        if (!v.exists) return "VENUE_NONE";
+        return string(abi.encodePacked("VENUE_", chainName(v.chainId), "_", v.enabled ? "ON" : "OFF"));
+    }
+
+    function revision() external pure returns (uint256) { return DT_REVISION; }
+    function domain() external pure returns (bytes32) { return DT_DOMAIN; }
+    function salt() external pure returns (bytes32) { return DT_SALT; }
+    function quote() external pure returns (string memory) { return "Olah, route it."; }
+
+    function roleAddresses() external view returns (address owner_, address operator_, address treasury_) {
+        return (owner, operator, treasury);
+    }
+
+    function isSealed() external view returns (bool) { return sealed; }
+    function isPaused() external view returns (bool) { return paused; }
+
+    function config() external pure returns (uint16 bps, uint16 maxSlippageBps, uint256 maxRoutes, uint256 maxVenues, uint256 maxBatch, uint256 withdrawCapWei) {
+        return (DT_BPS, DT_MAX_SLIPPAGE_BPS, DT_MAX_ROUTES, DT_MAX_VENUES, DT_MAX_BATCH, DT_WITHDRAW_CAP_WEI);
+    }
+
+    // ------------------------------------------------------------------------
+    // Extended read API (routes, venues, quotes)
+    // ------------------------------------------------------------------------
+
+    struct VenueView {
+        bytes32 venueId;
+        uint32 chainId;
+        bytes32 venueTag;
+        bool enabled;
+        uint64 catalogedAt;
+        bool exists;
+    }
+
+    struct RouteView {
+        uint256 routeId;
+        bytes32 routeKey;
+        uint32 srcChain;
+        uint32 dstChain;
+        bytes32 srcAsset;
+        bytes32 dstAsset;
+        uint16 maxSlippageBps;
+        bool retired;
+        uint64 authoredAt;
+        uint256 venuePathLen;
+    }
+
+    function venueCount() external view returns (uint256) {
+        return _venueIds.length;
+    }
+
+    function routeCount() external view returns (uint256) {
+        return _nextRouteId <= 1 ? 0 : _nextRouteId - 1;
