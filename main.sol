@@ -826,3 +826,72 @@ contract DiazTrade {
         if (!v.enabled) return (false, "disabled");
         if (v.chainId == 0) return (false, "bad_chain");
         return (true, "ok");
+    }
+
+    function validateRoute(uint256 routeId) external view returns (bool ok, string memory why) {
+        Route storage r = _routes[routeId];
+        if (r.routeKey == bytes32(0)) return (false, "missing");
+        if (r.retired) return (false, "retired");
+        if (r.srcChain == 0 || r.dstChain == 0 || r.srcChain == r.dstChain) return (false, "bad_chain");
+        if (r.srcAsset == bytes32(0) || r.dstAsset == bytes32(0)) return (false, "bad_asset");
+        if (r.maxSlippageBps == 0 || r.maxSlippageBps > DT_MAX_SLIPPAGE_BPS) return (false, "bad_slippage");
+        if (r.venuePath.length == 0) return (false, "no_venues");
+        return (true, "ok");
+    }
+
+    function validateQuote(bytes32 quoteId) external view returns (bool ok, string memory why) {
+        if (!_quoteSeen[quoteId]) return (false, "missing");
+        uint256 rid = _quoteToRouteId[quoteId];
+        if (rid == 0) return (false, "no_route");
+        if (_routes[rid].routeKey == bytes32(0)) return (false, "route_missing");
+        return (true, "ok");
+    }
+
+    // ------------------------------------------------------------------------
+    // UI formatting helpers
+    // ------------------------------------------------------------------------
+
+    function formatChain(uint32 chainId) external pure returns (string memory) {
+        return chainName(chainId);
+    }
+
+    function formatRouteKey(bytes32 routeKey) external pure returns (bytes32) {
+        return routeKey;
+    }
+
+    function formatNumber(uint256 v) external pure returns (string memory) {
+        return v.toString();
+    }
+
+    function platformLabel() external pure returns (string memory) {
+        return "cross chain trading platform works with Solana/Sui/EVM";
+    }
+
+    function uiAccentA() external pure returns (bytes3) { return 0x00d4aa; }
+    function uiAccentB() external pure returns (bytes3) { return 0xc84ef6; }
+    function uiAccentC() external pure returns (bytes3) { return 0xf5a623; }
+
+    // ------------------------------------------------------------------------
+    // Event topics (for indexers)
+    // ------------------------------------------------------------------------
+
+    function topicRouteAuthored() external pure returns (bytes32) {
+        return keccak256("RouteAuthored(uint256,bytes32,uint32,uint32,bytes32,bytes32,uint16,uint64)");
+    }
+
+    function topicQuoteStamped() external pure returns (bytes32) {
+        return keccak256("QuoteStamped(bytes32,bytes32,uint256,uint128,uint128,uint64,bytes32)");
+    }
+
+    function topicDispatchSignaled() external pure returns (bytes32) {
+        return keccak256("DispatchSignaled(bytes32,bytes32,address,bytes32,uint64)");
+    }
+
+    function topicVenueCataloged() external pure returns (bytes32) {
+        return keccak256("VenueCataloged(bytes32,uint32,bytes32,uint64)");
+    }
+
+    function topicVenueEnabled() external pure returns (bytes32) {
+        return keccak256("VenueEnabled(bytes32,bool,uint64)");
+    }
+
