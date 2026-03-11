@@ -274,3 +274,72 @@ contract DiazTrade {
         if (sealed) revert DT__Sealed();
         if (venueId == bytes32(0)) revert DT__BadVenue();
         if (chainId == 0) revert DT__BadChain();
+        Venue storage v = _venues[venueId];
+        if (!v.exists) {
+            if (_venueIds.length >= DT_MAX_VENUES) revert DT__TooLarge();
+            _venueIds.push(venueId);
+            v.exists = true;
+            v.catalogedAt = uint64(block.number);
+            unchecked { ++_nextVenueIndex; }
+        }
+        v.chainId = chainId;
+        v.venueTag = venueTag;
+        v.enabled = true;
+        emit VenueCataloged(venueId, chainId, venueTag, uint64(block.number));
+        emit VenueEnabled(venueId, true, uint64(block.number));
+    }
+
+    function setVenueEnabled(bytes32 venueId, bool enabled) external onlyOperator {
+        Venue storage v = _venues[venueId];
+        if (!v.exists) revert DT__Missing();
+        v.enabled = enabled;
+        emit VenueEnabled(venueId, enabled, uint64(block.number));
+    }
+
+    function venueOf(bytes32 venueId) external view returns (uint32 chainId, bytes32 venueTag, bool enabled, uint64 catalogedAt, bool exists) {
+        Venue storage v = _venues[venueId];
+        return (v.chainId, v.venueTag, v.enabled, v.catalogedAt, v.exists);
+    }
+
+    function venueIds() external view returns (bytes32[] memory) {
+        return _venueIds;
+    }
+
+    // ------------------------------------------------------------------------
+    // Routes
+    // ------------------------------------------------------------------------
+
+    function computeRouteKey(
+        uint32 srcChain,
+        uint32 dstChain,
+        bytes32 srcAsset,
+        bytes32 dstAsset
+    ) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked("ROUTE", srcChain, dstChain, srcAsset, dstAsset));
+    }
+
+    function authorRoute(
+        uint32 srcChain,
+        uint32 dstChain,
+        bytes32 srcAsset,
+        bytes32 dstAsset,
+        uint16 maxSlippageBps,
+        bytes32[] calldata venuePath
+    ) external onlyOperator whenNotPaused nonReentrant returns (uint256 routeId) {
+        if (sealed) revert DT__Sealed();
+        if (srcChain == 0 || dstChain == 0 || srcChain == dstChain) revert DT__BadChain();
+        if (srcAsset == bytes32(0) || dstAsset == bytes32(0)) revert DT__BadBytes();
+        if (maxSlippageBps == 0 || maxSlippageBps > DT_MAX_SLIPPAGE_BPS) revert DT__BadAmount();
+        uint256 vpLen = venuePath.length;
+        if (vpLen == 0 || vpLen > 16) revert DT__BadRoute();
+        if (_nextRouteId > DT_MAX_ROUTES) revert DT__TooLarge();
+
+        bytes32 key = computeRouteKey(srcChain, dstChain, srcAsset, dstAsset);
+        routeId = _nextRouteId;
+        unchecked { ++_nextRouteId; }
+
+        Route storage r = _routes[routeId];
+        r.routeKey = key;
+        r.srcChain = srcChain;
+        r.dstChain = dstChain;
+        r.srcAsset = srcAsset;
