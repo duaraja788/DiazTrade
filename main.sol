@@ -1309,3 +1309,72 @@ contract DiazTrade {
             Route storage r = _routes[id];
             if (r.routeKey != bytes32(0) && !r.retired && r.srcChain == srcChain && r.dstChain == dstChain) {
                 temp[found] = id;
+                unchecked { ++found; }
+            }
+            unchecked { ++id; }
+        }
+        ids = new uint256[](found);
+        for (uint256 i; i < found; ) {
+            ids[i] = temp[i];
+            unchecked { ++i; }
+        }
+    }
+
+    function computeVenueId(bytes32 venueTag, uint32 chainId) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("VID", venueTag, chainId));
+    }
+
+    function computeRouteId(bytes32 routeKey, uint256 nonce) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("RID", routeKey, nonce));
+    }
+
+    function computeUiKey(bytes32 label, address user, uint256 id) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("UIK", label, user, id));
+    }
+
+    function computeDeskId(bytes32 seed) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("DESK", seed));
+    }
+
+    function computeQuoteReplaySafe(bytes32 quoteId, uint256 chainId_, address self_) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("REPLAY", quoteId, chainId_, self_));
+    }
+
+    function computeRouteReplaySafe(bytes32 routeKey, uint256 chainId_, address self_) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("R_REPLAY", routeKey, chainId_, self_));
+    }
+
+    function selectorComputeRouteKey() external pure returns (bytes4) {
+        return bytes4(keccak256("computeRouteKey(uint32,uint32,bytes32,bytes32)"));
+    }
+
+    function selectorAuthorRoute() external pure returns (bytes4) {
+        return bytes4(keccak256("authorRoute(uint32,uint32,bytes32,bytes32,uint16,bytes32[])"));
+    }
+
+    function selectorStampQuote() external pure returns (bytes4) {
+        return bytes4(keccak256("stampQuote(uint256,uint128,uint128,uint64)"));
+    }
+
+    function selectorSignalDispatch() external pure returns (bytes4) {
+        return bytes4(keccak256("signalDispatch(bytes32,bytes32)"));
+    }
+
+    function selectorCatalogVenue() external pure returns (bytes4) {
+        return bytes4(keccak256("catalogVenue(bytes32,uint32,bytes32)"));
+    }
+
+    function selectorWithdrawTreasury() external pure returns (bytes4) {
+        return bytes4(keccak256("withdrawTreasury(address,uint256)"));
+    }
+
+    function selectors() external pure returns (bytes4[] memory sels) {
+        sels = new bytes4[](6);
+        sels[0] = bytes4(keccak256("computeRouteKey(uint32,uint32,bytes32,bytes32)"));
+        sels[1] = bytes4(keccak256("authorRoute(uint32,uint32,bytes32,bytes32,uint16,bytes32[])"));
+        sels[2] = bytes4(keccak256("stampQuote(uint256,uint128,uint128,uint64)"));
+        sels[3] = bytes4(keccak256("signalDispatch(bytes32,bytes32)"));
+        sels[4] = bytes4(keccak256("catalogVenue(bytes32,uint32,bytes32)"));
+        sels[5] = bytes4(keccak256("withdrawTreasury(address,uint256)"));
+    }
+
