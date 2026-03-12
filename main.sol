@@ -1240,3 +1240,72 @@ contract DiazTrade {
 
     function balances(address a) external view returns (uint256 ethBalance) {
         return a.balance;
+    }
+
+    function contractBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+
+    function canWithdraw(uint256 amountWei) external view returns (bool) {
+        return _totalWithdrawnWei + amountWei <= DT_WITHDRAW_CAP_WEI;
+    }
+
+    // ------------------------------------------------------------------------
+    // Final helper block (pagination + deterministic ids)
+    // ------------------------------------------------------------------------
+
+    function routeIdRange() external view returns (uint256 minId, uint256 maxId, uint256 nextId) {
+        nextId = _nextRouteId;
+        if (nextId <= 1) return (0, 0, nextId);
+        return (1, nextId - 1, nextId);
+    }
+
+    function lastRouteId() external view returns (uint256) {
+        return _nextRouteId <= 1 ? 0 : _nextRouteId - 1;
+    }
+
+    function lastVenueId() external view returns (bytes32) {
+        uint256 n = _venueIds.length;
+        if (n == 0) return bytes32(0);
+        return _venueIds[n - 1];
+    }
+
+    function findFirstActiveRoute(uint256 fromId, uint256 toId) external view returns (uint256 routeId, bool found) {
+        if (fromId == 0) fromId = 1;
+        if (toId >= _nextRouteId) toId = _nextRouteId - 1;
+        if (fromId > toId) return (0, false);
+        for (uint256 id = fromId; id <= toId; ) {
+            if (isRouteActive(id)) return (id, true);
+            unchecked { ++id; }
+        }
+        return (0, false);
+    }
+
+    function findActiveRoutes(uint256 fromId, uint256 limit) external view returns (uint256[] memory ids) {
+        if (limit == 0 || limit > DT_MAX_BATCH) revert DT__BadAmount();
+        if (fromId == 0) fromId = 1;
+        uint256[] memory temp = new uint256[](limit);
+        uint256 found;
+        for (uint256 id = fromId; id < _nextRouteId && found < limit; ) {
+            if (isRouteActive(id)) {
+                temp[found] = id;
+                unchecked { ++found; }
+            }
+            unchecked { ++id; }
+        }
+        ids = new uint256[](found);
+        for (uint256 i; i < found; ) {
+            ids[i] = temp[i];
+            unchecked { ++i; }
+        }
+    }
+
+    function findActiveRoutesForChains(uint32 srcChain, uint32 dstChain, uint256 fromId, uint256 limit) external view returns (uint256[] memory ids) {
+        if (limit == 0 || limit > DT_MAX_BATCH) revert DT__BadAmount();
+        if (fromId == 0) fromId = 1;
+        uint256[] memory temp = new uint256[](limit);
+        uint256 found;
+        for (uint256 id = fromId; id < _nextRouteId && found < limit; ) {
+            Route storage r = _routes[id];
+            if (r.routeKey != bytes32(0) && !r.retired && r.srcChain == srcChain && r.dstChain == dstChain) {
+                temp[found] = id;
