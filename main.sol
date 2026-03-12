@@ -1102,3 +1102,72 @@ contract DiazTrade {
         }
     }
 
+    function pickLatestActiveRoute(bytes32 routeKey) external view returns (uint256 routeId, bool found) {
+        uint256 latest = _routeKeyToLatestId[routeKey];
+        if (latest != 0 && isRouteActive(latest)) return (latest, true);
+        for (uint256 id = _nextRouteId; id > 1; ) {
+            unchecked { --id; }
+            Route storage r = _routes[id];
+            if (r.routeKey == routeKey && !r.retired) return (id, true);
+        }
+        return (0, false);
+    }
+
+    // ------------------------------------------------------------------------
+    // Slippage math helpers (pure)
+    // ------------------------------------------------------------------------
+
+    function applyBps(uint128 amount, uint16 bps_) public pure returns (uint128) {
+        return uint128((uint256(amount) * uint256(bps_)) / DT_BPS);
+    }
+
+    function applySlippageDown(uint128 expected, uint16 slippageBps) external pure returns (uint128 minOut) {
+        if (slippageBps > DT_MAX_SLIPPAGE_BPS) revert DT__BadAmount();
+        uint256 cut = (uint256(expected) * uint256(slippageBps)) / DT_BPS;
+        minOut = uint128(uint256(expected) - cut);
+    }
+
+    function applySlippageUp(uint128 expected, uint16 slippageBps) external pure returns (uint128 maxIn) {
+        if (slippageBps > DT_MAX_SLIPPAGE_BPS) revert DT__BadAmount();
+        uint256 add = (uint256(expected) * uint256(slippageBps)) / DT_BPS;
+        maxIn = uint128(uint256(expected) + add);
+    }
+
+    function bpsDelta(uint128 a, uint128 b) external pure returns (uint16 deltaBps) {
+        if (a == 0) return DT_BPS;
+        uint256 diff = a > b ? uint256(a - b) : uint256(b - a);
+        uint256 bps_ = (diff * DT_BPS) / uint256(a);
+        if (bps_ > type(uint16).max) return type(uint16).max;
+        return uint16(bps_);
+    }
+
+    function minU128(uint128 a, uint128 b) external pure returns (uint128) { return a < b ? a : b; }
+    function maxU128(uint128 a, uint128 b) external pure returns (uint128) { return a > b ? a : b; }
+
+    // ------------------------------------------------------------------------
+    // Quote ID helpers (pure)
+    // ------------------------------------------------------------------------
+
+    function computeQuoteIdV2(bytes32 routeKey, uint256 routeId, uint128 srcAmount, uint128 expectedDstAmount, uint64 validUntilBlock) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("QUOTE2", routeKey, routeId, srcAmount, expectedDstAmount, validUntilBlock));
+    }
+
+    function computeQuoteIdSalted(bytes32 routeKey, uint256 routeId, uint128 srcAmount, uint64 validUntilBlock, bytes32 salt_) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("QUOTE_S", routeKey, routeId, srcAmount, validUntilBlock, salt_));
+    }
+
+    function computeQuoteNamespace(uint32 srcChain, uint32 dstChain) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("QNS", srcChain, dstChain));
+    }
+
+    function computeRouteNamespace(uint32 srcChain, uint32 dstChain) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("RNS", srcChain, dstChain));
+    }
+
+    // ------------------------------------------------------------------------
+    // Bulk helpers for UI tables
+    // ------------------------------------------------------------------------
+
+    function routesKeysAndFlags(uint256[] calldata routeIds) external view returns (bytes32[] memory keys, bool[] memory active, bool[] memory retired) {
+        uint256 n = routeIds.length;
+        if (n > DT_MAX_BATCH) revert DT__TooLarge();
