@@ -1378,3 +1378,68 @@ contract DiazTrade {
         sels[5] = bytes4(keccak256("withdrawTreasury(address,uint256)"));
     }
 
+    function sanity() external view returns (bool ok, string memory why) {
+        if (owner == address(0) || operator == address(0) || treasury == address(0)) return (false, "zero_role");
+        if (paused && sealed) return (true, "paused_and_sealed");
+        return (true, "ok");
+    }
+
+    function versionTuple() external pure returns (string memory app, uint256 rev, bytes32 dom) {
+        return ("DiazTrade", DT_REVISION, DT_DOMAIN);
+    }
+
+    function labels() external pure returns (string memory a, string memory b, string memory c) {
+        return ("Olah", "DiazTrade", "SeaH00rse-compatible");
+    }
+
+    function roleNames() external pure returns (string memory a, string memory b, string memory c) {
+        return ("owner", "operator", "treasury");
+    }
+
+    function isChainSupported(uint32 chainId_) external pure returns (bool) {
+        return chainId_ == DT_CHAIN_EVM || chainId_ == DT_CHAIN_SOLANA || chainId_ == DT_CHAIN_SUI;
+    }
+
+    function routeKeyOf(uint256 routeId) external view returns (bytes32) {
+        return _routes[routeId].routeKey;
+    }
+
+    function routeIsRetired(uint256 routeId) external view returns (bool) {
+        return _routes[routeId].retired;
+    }
+
+    function routeAuthoredAt(uint256 routeId) external view returns (uint64) {
+        return _routes[routeId].authoredAt;
+    }
+
+    function venueChain(bytes32 venueId) external view returns (uint32) {
+        return _venues[venueId].chainId;
+    }
+
+    function venueTag(bytes32 venueId) external view returns (bytes32) {
+        return _venues[venueId].venueTag;
+    }
+
+    function venueCatalogedAt(bytes32 venueId) external view returns (uint64) {
+        return _venues[venueId].catalogedAt;
+    }
+
+    function quoteDeskId() external view returns (bytes32) {
+        return keccak256(abi.encodePacked("DIAZ_DESK", DT_DOMAIN, DT_SALT, block.chainid, address(this)));
+    }
+
+    function routeDeskKey(uint32 srcChain, uint32 dstChain) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("DESK_KEY", srcChain, dstChain));
+    }
+
+    function routeDeskKey2(uint32 srcChain, uint32 dstChain, bytes32 srcAsset, bytes32 dstAsset) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("DESK_KEY2", srcChain, dstChain, srcAsset, dstAsset));
+    }
+
+    function simpleQuote(bytes32 routeKey, uint128 srcAmount) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked("SQUOTE", routeKey, srcAmount));
+    }
+
+    // Storage gap
+    uint256[61] private __gap;
+}
