@@ -1171,3 +1171,72 @@ contract DiazTrade {
     function routesKeysAndFlags(uint256[] calldata routeIds) external view returns (bytes32[] memory keys, bool[] memory active, bool[] memory retired) {
         uint256 n = routeIds.length;
         if (n > DT_MAX_BATCH) revert DT__TooLarge();
+        keys = new bytes32[](n);
+        active = new bool[](n);
+        retired = new bool[](n);
+        for (uint256 i; i < n; ) {
+            uint256 rid = routeIds[i];
+            Route storage r = _routes[rid];
+            keys[i] = r.routeKey;
+            retired[i] = r.retired;
+            active[i] = r.routeKey != bytes32(0) && !r.retired;
+            unchecked { ++i; }
+        }
+    }
+
+    function routesChains(uint256[] calldata routeIds) external view returns (uint32[] memory src, uint32[] memory dst) {
+        uint256 n = routeIds.length;
+        if (n > DT_MAX_BATCH) revert DT__TooLarge();
+        src = new uint32[](n);
+        dst = new uint32[](n);
+        for (uint256 i; i < n; ) {
+            Route storage r = _routes[routeIds[i]];
+            src[i] = r.srcChain;
+            dst[i] = r.dstChain;
+            unchecked { ++i; }
+        }
+    }
+
+    function routesAssets(uint256[] calldata routeIds) external view returns (bytes32[] memory srcAsset, bytes32[] memory dstAsset) {
+        uint256 n = routeIds.length;
+        if (n > DT_MAX_BATCH) revert DT__TooLarge();
+        srcAsset = new bytes32[](n);
+        dstAsset = new bytes32[](n);
+        for (uint256 i; i < n; ) {
+            Route storage r = _routes[routeIds[i]];
+            srcAsset[i] = r.srcAsset;
+            dstAsset[i] = r.dstAsset;
+            unchecked { ++i; }
+        }
+    }
+
+    function routesSlippage(uint256[] calldata routeIds) external view returns (uint16[] memory slipBps) {
+        uint256 n = routeIds.length;
+        if (n > DT_MAX_BATCH) revert DT__TooLarge();
+        slipBps = new uint16[](n);
+        for (uint256 i; i < n; ) {
+            slipBps[i] = _routes[routeIds[i]].maxSlippageBps;
+            unchecked { ++i; }
+        }
+    }
+
+    function routesVenueLens(uint256[] calldata routeIds) external view returns (uint256[] memory lens) {
+        uint256 n = routeIds.length;
+        if (n > DT_MAX_BATCH) revert DT__TooLarge();
+        lens = new uint256[](n);
+        for (uint256 i; i < n; ) {
+            lens[i] = _routes[routeIds[i]].venuePath.length;
+            unchecked { ++i; }
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Role introspection
+    // ------------------------------------------------------------------------
+
+    function isOwner(address a) external view returns (bool) { return a == owner; }
+    function isOperator(address a) external view returns (bool) { return a == operator; }
+    function isTreasury(address a) external view returns (bool) { return a == treasury; }
+
+    function balances(address a) external view returns (uint256 ethBalance) {
+        return a.balance;
